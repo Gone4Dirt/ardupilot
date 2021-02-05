@@ -409,9 +409,11 @@ private:
         AllowArming                        = (1 << 0U),
         AllowTakeOffWithoutRaisingThrottle = (1 << 1U),
         IgnorePilotYaw                     = (1 << 2U),
+        AllowWeatherVaning                 = (1 << 3U)
     };
 
     bool use_pilot_yaw(void) const;
+    bool allows_weathervaning(void) const;
 
     bool start_command(const AP_Mission::Mission_Command& cmd);
     bool verify_command(const AP_Mission::Mission_Command& cmd);
@@ -838,9 +840,10 @@ private:
 
     // enum for GUID_OPTIONS parameter
     enum class Options : int32_t {
-        AllowArmingFromTX = (1U << 0),
+        AllowArmingFromTX   = (1U << 0),
         // this bit is still available, pilot yaw was mapped to bit 2 for symmetry with auto
-        IgnorePilotYaw    = (1U << 2),
+        IgnorePilotYaw      = (1U << 2),
+        AllowWeatherVaning  = (1U << 3)
     };
 
     void pos_control_start();
@@ -853,6 +856,7 @@ private:
     void set_desired_velocity_with_accel_and_fence_limits(const Vector3f& vel_des);
     void set_yaw_state(bool use_yaw, float yaw_cd, bool use_yaw_rate, float yaw_rate_cds, bool relative_angle);
     bool use_pilot_yaw(void) const;
+    bool allows_weathervaning(void) const;
 
     // controls which controller is run (pos or vel):
     GuidedMode guided_mode = Guided_TakeOff;

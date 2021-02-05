@@ -2,6 +2,7 @@
 
 #include <AP_Common/AP_Common.h>
 #include "RC_Channel.h"
+#include <AC_AttitudeControl/AC_WeatherVane.h>
 
 #if GRIPPER_ENABLED == ENABLED
  # include <AP_Gripper/AP_Gripper.h>
@@ -641,6 +642,8 @@ public:
 #if MODE_RTL_ENABLED == ENABLED
     AP_Int32 rtl_options;
 #endif
+
+    AC_WeatherVane weathervane;
 
 };
 
