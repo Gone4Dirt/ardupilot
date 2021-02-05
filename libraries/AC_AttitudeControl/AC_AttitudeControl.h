@@ -328,7 +328,10 @@ public:
 
     // enable inverted flight on backends that support it
     virtual void set_inverted_flight(bool inverted) {}
-    
+
+    // Helper to access max yaw rate
+    float get_yaw_rate_max(void) { return _ang_vel_yaw_max.get(); }
+
     // User settable parameters
     static const struct AP_Param::GroupInfo var_info[];
 
