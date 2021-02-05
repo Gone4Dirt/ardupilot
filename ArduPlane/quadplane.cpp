@@ -158,21 +158,9 @@ const AP_Param::GroupInfo QuadPlane::var_info[] = {
     // @User: Standard
     AP_GROUPINFO("VFWD_GAIN", 32, QuadPlane, vel_forward.gain, 0),
 
-    // @Param: WVANE_GAIN
-    // @DisplayName: Weathervaning gain
-    // @Description: This controls the tendency to yaw to face into the wind. A value of 0.1 is to start with and will give a slow turn into the wind. Use a value of 0.4 for more rapid response. The weathervaning works by turning into the direction of roll.
-    // @Range: 0 1
-    // @Increment: 0.01
-    // @User: Standard
-    AP_GROUPINFO("WVANE_GAIN", 33, QuadPlane, weathervane.gain, 0),
+    // 33 was used by WVANE_GAIN
 
-    // @Param: WVANE_MINROLL
-    // @DisplayName: Weathervaning min roll
-    // @Description: This set the minimum roll in degrees before active weathervaning will start. This may need to be larger if your aircraft has bad roll trim.
-    // @Range: 0 10
-    // @Increment: 0.1
-    // @User: Standard
-    AP_GROUPINFO("WVANE_MINROLL", 34, QuadPlane, weathervane.min_roll, 1),
+    // 34 was used by WVANE_MINROLL
 
     // @Param: RTL_ALT
     // @DisplayName: QRTL return altitude
@@ -524,6 +512,9 @@ const AP_Param::GroupInfo QuadPlane::var_info2[] = {
     // @User: Standard
     AP_GROUPINFO("TILT_FIX_GAIN", 23, QuadPlane, tilt.fixed_gain, 0),
 
+    // @Group: P
+    // @Path: ../libraries/AC_AttitudeControl/AC_WeatherVane.cpp
+    AP_SUBGROUPPTR(weathervane, "WVANE_", 24, QuadPlane, AC_WeatherVane),
 
     AP_GROUPEND
 };
@@ -760,6 +751,12 @@ bool QuadPlane::setup(void)
         AP_BoardConfig::config_error("Unable to allocate %s", "loiter_nav");
     }
     AP_Param::load_object_from_eeprom(loiter_nav, loiter_nav->var_info);
+
+    weathervane = new AC_WeatherVane(inertial_nav);
+#if AP_TERRAIN_AVAILABLE
+    weathervane->set_terrain(&terrain);
+#endif
+    AP_Param::load_object_from_eeprom(weathervane, weathervane->var_info);
 
     motors->init((AP_Motors::motor_frame_class)frame_class.get(), (AP_Motors::motor_frame_type)frame_type.get());
 
@@ -3245,44 +3242,25 @@ float QuadPlane::get_weathervane_yaw_rate_cds(void)
     */
     if (!in_vtol_mode() ||
         !motors->armed() ||
-        weathervane.gain <= 0 ||
         plane.control_mode == &plane.mode_qstabilize ||
         plane.control_mode == &plane.mode_qhover ||
         plane.control_mode == &plane.mode_qautotune) {
-        weathervane.last_output = 0;
-        return 0;
-    }
-    const uint32_t tnow = millis();
-    if (plane.channel_rudder->get_control_in() != 0) {
-        weathervane.last_pilot_input_ms = tnow;
-        weathervane.last_output = 0;
-        return 0;
-    }
-    if (tnow - weathervane.last_pilot_input_ms < 3000) {
-        weathervane.last_output = 0;
         return 0;
     }
 
-    float roll = wp_nav->get_roll() / 100.0f;
-    if (fabsf(roll) < weathervane.min_roll) {
-        weathervane.last_output = 0;
-        return 0;        
-    }
-    if (roll > 0) {
-        roll -= weathervane.min_roll;
-    } else {
-        roll += weathervane.min_roll;
-    }
-    
-    float output = constrain_float((roll/45.0f) * weathervane.gain, -1, 1);
-    if (should_relax()) {
-        output = 0;
-    }
-    weathervane.last_output = 0.98f * weathervane.last_output + 0.02f * output;
+    weathervane->set_max_yaw_rate(yaw_rate_max);
 
-    // scale over half of yaw_rate_max. This gives the pilot twice the
-    // authority of the weathervane controller
-    return weathervane.last_output * (yaw_rate_max/2) * 100;
+    // Allow weather vaning above 1 m
+    weathervane->set_min_alt(1);
+
+    // Relax weathervane controller if we think we have landed
+    weathervane->set_relax(should_relax());
+
+    if (weathervane->should_weathervane(plane.channel_rudder->get_control_in())) {
+        return weathervane->get_weathervane_yaw_rate_cds(wp_nav->get_roll(), wp_nav->get_pitch());
+    }
+
+    return 0;
 }
 
 /*
