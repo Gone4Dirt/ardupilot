@@ -313,12 +313,12 @@ void AP_MotorsHeli_RSC::output(RotorControlState state)
                 _idle_throttle = constrain_float( get_arot_idle_output(), 0.0f, 0.4f);
             }
             if (!_autorotating) {
-                GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "Autorotation");
+                GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "RSC: Autorotation");
                 _autorotating =true;
             }
         } else {
             if (_autorotating) {
-                GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "Autorotation Stopped");
+                GCS_SEND_TEXT(MAV_SEVERITY_CRITICAL, "RSC: Autorotation Stopped");
                 _autorotating =false;
             }
             // set rotor control speed to idle speed parameter, this happens instantly and ignores ramping
