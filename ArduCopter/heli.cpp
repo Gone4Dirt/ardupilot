@@ -186,15 +186,42 @@ void Copter::heli_update_rotor_speed_targets()
 // to autorotation flight mode if manual collective is not being used.
 void Copter::heli_update_autorotation()
 {
-    // check if flying and interlock disengaged
-    if (!ap.land_complete && !motors->get_interlock()) {
 #if MODE_AUTOROTATE_ENABLED == ENABLED
-        if (g2.arot.is_enable()) {
-            if (!flightmode->has_manual_throttle()) {
-                // set autonomous autorotation flight mode
-                set_mode(Mode::Number::AUTOROTATE, ModeReason::AUTOROTATION_START);
-            }
-            // set flag to facilitate both auto and manual autorotations
+    // Always update the ground distance to prevent a race on init
+    if (motors->armed() && g2.arot.is_enable()) {
+        // Get height above ground. If using a healthy LiDaR below func will return an interpolated
+        // distance based on inertial measurement. If LiDaR is unhealthy and terrain is available
+        // we will get a terrain database estimate. Otherwise we will get height above home.
+        int32_t gnd_dist = flightmode->get_alt_above_ground_cm();
+
+        // set the height in the autorotation controller
+        g2.arot.set_ground_distance(gnd_dist);
+    }
+
+    // Run the preliminary flare calcs to get prints to the GCS to help users setup the controller.
+    // This function returns early if not configured to do this.
+    g2.arot.run_flare_prelim_calc();
+
+    // See if we need to use autorotation config for preliminary tests
+    if (g2.arot.use_autorotation_config() && !arot_rng_finder_set_on) {
+        gcs().send_text(MAV_SEVERITY_INFO, "arot rngfnd test on");
+        set_rangefinder_timeout(10000);
+        arot_rng_finder_set_on = true;
+    } else if (arot_rng_finder_set_on) {
+        gcs().send_text(MAV_SEVERITY_INFO, "arot rngfnd test off");
+        reset_rangefinder_timeout();
+        arot_rng_finder_set_on = false;
+    }
+#endif
+
+    // check if flying and interlock disengaged
+    if (!ap.land_complete && !motors->get_interlock() && motors->armed()) {
+#if MODE_AUTOROTATE_ENABLED == ENABLED
+        if (g2.arot.is_enable() && !flightmode->has_manual_throttle()) {
+            // set autonomous autorotation flight mode
+            set_mode(Mode::Number::AUTOROTATE, ModeReason::AUTOROTATION_START);
+
+            // set flag to facilitate auto autorotation
             motors->set_in_autorotation(true);
             motors->set_enable_bailout(true);
         }
@@ -208,7 +235,6 @@ void Copter::heli_update_autorotation()
         motors->set_in_autorotation(false);
         motors->set_enable_bailout(false);
     }
-
 }
 
 // update collective low flag.  Use a debounce time of 400 milliseconds.

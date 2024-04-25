@@ -1272,7 +1272,7 @@ ParametersG2::ParametersG2(void)
     ,mode_systemid_ptr(&copter.mode_systemid)
 #endif
 #if MODE_AUTOROTATE_ENABLED == ENABLED
-    ,arot()
+    ,arot(copter.inertial_nav, copter.ahrs, copter.motors)
 #endif
 #if HAL_BUTTON_ENABLED
     ,button_ptr(&copter.button)
