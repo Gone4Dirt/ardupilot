@@ -1,0 +1,303 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{amsmath}               % To include equation enviroment
+\usepackage{graphicx}              % To include graphics enviroment
+\usepackage[margin=1in]{geometry}  % Package to modify page layout, setting margin size
+\usepackage{tabularray}            % A nicer package, than the inbuilt, for the definition of tables
+\usepackage{fancyhdr}              % Customise the header and footer
+\usepackage{siunitx}               % Package for standarised SI units
+\usepackage{xfrac}                 % Package pretty fractions
+\usepackage{url}                   % Make urls look nicer
+
+% === === === Inline Bibilography === === ===
+\begin{filecontents}[overwrite]{biblio.bib}
+
+@Book{Leishman,
+	author = {Leishman},
+	title = {Principles of Helicopter Aerodynamics},
+	publisher = {Cambridge Aerospace Series},
+	year = {2006},
+	edition = {2nd}
+}
+
+@misc{wikiQuadInt,
+	author = "{Wikipedia contributors}",
+	title = "Quadratic integral --- {Wikipedia}{,} The Free Encyclopedia",
+	year = "2022",
+	howpublished = "\url{https://en.wikipedia.org/w/index.php?title=Quadratic_integral&oldid=1069728369}",
+	note = "[Online; accessed 1-April-2024]"
+}
+
+@misc{YouMath,
+	author = "{Math Industries SRL}",
+	title = "Fundemental Integrals",
+	year = "2023",
+	howpublished = "\url{https://www.youmath.it/lezioni/analisi-matematica/integrali/596-integrali-notevoli.html}",
+	note = "[Online; accessed 1-April-2024]"
+}
+
+
+%@online{•,
+%author = {Math Industries SRL},
+%title = {Fundemental Integrals},
+%year = {2024},
+%url = {https://www.youmath.it/lezioni/analisi-matematica/integrali/596-integrali-notevoli.html},
+%OPTsubtitle = {•},
+%OPTtitleaddon = {•},
+%OPTlanguage = {•},
+%OPTversion = {•},
+%OPTnote = {•},
+%OPTorganization = {•},
+%OPTdate = {•},
+%OPTmonth = {•},
+%OPTaddendum = {•},
+%OPTpubstate = {•},
+%OPTurldate = {•},
+}
+
+
+
+
+
+
+\end{filecontents} 
+
+
+
+% === === === Main Document === === ===
+\begin{document}
+
+\setlength{\parindent}{0cm}
+
+% Setup some macros for setting variables used multiple times
+\newcommand{\Issue}{1.0}
+\newcommand{\Date}{Feb 2024}
+\newcommand{\Equation}[1]{equation (\ref{#1})}
+
+% Setup header and footer styles
+\fancypagestyle{firstpagestyle}
+{
+   \fancyhf{}
+   \pagestyle{fancy}
+	\fancyhead{} % Clear the header
+	\setlength{\headheight}{33.0pt}
+	\fancyhead[R]{\includegraphics[height=1cm]{ArduPilot_logo.jpg}} % Add AP logo
+	\renewcommand{\headrulewidth}{0pt} % Remove the line
+	\fancyfoot{} % Clear the footer
+	\fancyfoot[L]{\large Issue \Issue}
+	\fancyfoot[C]{\large Page \thepage}
+	\fancyfoot[R]{\large \Date}
+}
+
+\fancypagestyle{otherpagestyle}
+{
+   \fancyhf{}
+   \pagestyle{fancy}
+	\fancyhead{} % Clear the header
+	\renewcommand{\headrulewidth}{0.5pt}
+	\setlength{\headheight}{33.0pt}
+	\fancyhead[R]{\includegraphics[height=1cm]{ArduPilot_logo.jpg}} % Add AP logo
+	\fancyhead[L]{\large \textbf{Derivation of Autonomous\\Autorotation Equations}}
+	\fancyfoot{} % Clear the footer
+	\fancyfoot[L]{\large Issue \Issue}
+	\fancyfoot[C]{\large Page \thepage}
+	\fancyfoot[R]{\large \Date}
+}
+
+% Set the first page style
+\thispagestyle{firstpagestyle}
+
+
+% --- Title ---
+\begin{center}
+{\Large \textbf{Derivation of Equations used in ArduPilots Autonomous Autorotation Flight Mode}}\\[1.6cm]
+\end{center}
+
+
+\section{Introduction}
+
+This short report gives an overview of the equations used within the autonomous autorotation flight mode implimented in ArduPilot, for use with traditional helicopters.
+
+The purpose of this document is to provide a guide to developers, giving the derivation of the equations used, making the code implementation easier to follow, and preserving the intent and rational as to why the controller is written as it is.
+
+In an attempt to keep this document brief, where possible, equations from other resources have been used as a starting point, to avoid duplication of already available and well documented methods.  All references and links are provided.
+
+
+\section{Nomenclature}
+
+\begin{table}[h!]
+    \centering
+    \begin{tblr}{
+    			colspec={Q[c,m]Q[l,m]},
+    			column{1}={2.0cm},
+    			%column{2}={1.25cm},
+    			}
+		$A$                 &  (\unit{\meter\squared}) Rotor disc area.  \\		
+		$C_{l_{\alpha}}$    &  (\unit{\per\radian}) lift-curve slope.  \\
+		$C_{T}$             &  Coefficient of thrust.  \\
+		$k_{*}$             &  Grouping variable.  Numerous are used in this derivation.  They do not have physical significance.
+		$r$                 &  Non-dimensional radial distance.  \\
+		$R$                 &  (\unit{\meter}) Rotor Radius. \\
+		$T$                 &  (\unit{\newton}) Thrust. \\
+		$\theta$            &  (\unit{\radian}) Blade pitch angle.  \\
+    	$\lambda$           &  Rotor inflow ratio (normalised by tip speed).  \\
+    	$\lambda_{i}$       &  Induced inflow ratio.  \\
+    	$\lambda_{h}$       &  Induced inflow ratio in the hover.  \\
+    	$\lambda_{c}$       &  Climb inflow ratio.  \\
+    	$\rho$              &  (\unit{\kilogram\per\meter\cubed})Far-field air density. \\
+    	$\sigma$            &  Rotor solidity ratio.  \\
+    	$\Omega$            &  (\unit{\radian\per\second}) Rotor speed.  \\
+	\end{tblr}
+\end{table}
+
+TODO: Add a few diagrams of rotor geometry to help introduce the nomenclature.
+
+
+\section{Note on Thrust Coefficient}
+
+Within the world of helicopter aerodynamics and performance analysis there are two slightly different ways of non-dimensionalising Thrust.  These are often refereed to the US and European customary definitions, and the only difference between them is factor of $\sfrac{1}{2}$.  Therefore to avoid confusion, the thrust coefficient used in this work is formally defined as:
+
+\begin{equation}
+	\label{eq:Thrust Coefficient}
+	C_{T} = \dfrac{T}{\rho A (\Omega R)^{2}} ,
+\end{equation}
+
+which is the US customary definition.
+
+
+\section{Flare Hight Estimate}
+
+In order to approximate what height the aircraft will begin to flare, Blade Element Momentum Theory (BEMT) is used to construct an approximation of the deceleration that can be expected from the helicopter in the flare, hence at what height the flare must begin to achieve a successful landing.  
+
+TODO: Give a little flow diagram of the calculation order to provide context
+
+\subsection{Approximation of Hover Inflow Ratio}
+
+To be able to determine an approximation for rotor drag, the inflow ratio required to maintain the rotor head speed in autorotation is first required.  In this work it is assumed that the flow induced by the main rotor in the hover case, is sufficient to drive the rotor head at the same speed when the flow is reversed for the autorotation case.
+
+To avoid duplication of already published work the BEMT equations used herein will not be derived from first principles.  Instead, the derivation will start from equation (3.22) of \cite{Leishman} (Page 120), which gives a relationship for the coefficient of thrust ($C_{T}$) with respect to the inflow ratio ($\lambda$) for a rotor head with \textbf{zero blade twist} and by assuming a \textbf{uniform inflow}:
+
+\begin{equation}
+	\label{eq:CTStart}
+	C_{T} = \dfrac{1}{2} \sigma C_{l_{\alpha}} \left( \dfrac{\theta}{3} - \dfrac{\lambda}{2} \right),
+\end{equation}
+
+in which $C_{l_{\alpha}}$ is the lift curve slope of the rotor blade, $\sigma$ is the solidity ratio, and $\theta$ is the blade collective angle.  For cleanliness in the equations, $\sigma C_{l_{\alpha}}$ will be grouped into one variable $k_{1}$:
+
+\begin{equation}
+	\label{eq:CTGrouped}
+	C_{T} = \dfrac{1}{2} k_{1} \left( \dfrac{\theta}{3} - \dfrac{\lambda}{2} \right).
+\end{equation}
+
+As the hover case is of specific interest in this application the following simplification can be made:
+
+\begin{equation}
+	\label{eq:InflowSimplification}
+	\lambda = \lambda_{i} + \lambda_{c} = \lambda_{i},
+\end{equation}
+
+as the inflow ratio due to climbing flight ($\lambda_{c}$) is zero in this case leaving only the induced inflow ratio ($\lambda_{i}$).  From simple momentum theory, the following relationship between $\lambda_{i}$ and $C_{T}$ is known (equation (2.32) in \cite{Leishman} (Page 67)) for the hovering case:
+
+\begin{equation}
+	\label{eq:InflowCTHover}
+	\lambda_{i} = \sqrt{\dfrac{C_{T}}{2}}.
+\end{equation}
+
+Substitution of \Equation{eq:InflowCTHover} into (\ref{eq:CTGrouped}), and rearranging, gives a quadratic equation for the inflow ratio:
+
+\begin{alignat}{1}
+	2 \lambda_{i}^{2} = \dfrac{1}{2} k_{1} \left( \dfrac{\theta}{3} - \dfrac{\lambda_{i}}{2} \right), \notag \\
+	\lambda_{i}^{2} = \dfrac{1}{4} k_{1} \left( \dfrac{\theta}{3} - \dfrac{\lambda_{i}}{2} \right), \notag \\
+	\lambda_{i}^{2} = \dfrac{k_{1} \; \theta}{12} - \dfrac{k_{1}}{8} \lambda_{i}, \notag \\
+	\lambda_{i}^{2} + \dfrac{k_{1}}{8} \lambda_{i} - \dfrac{k_{1} \; \theta}{12} = 0. \\
+\end{alignat}
+
+Resolving the roots of the quadratic equation:
+
+\begin{alignat}{2}
+	\lambda_{i} &= \dfrac{-b \pm \sqrt{b^{2} - 4ac}}{2a}, \notag \\
+	\lambda_{i} &= \dfrac{-\dfrac{k_{1}}{8} \pm \sqrt{\left(\dfrac{k_{1}}{8}\right)^{2} - 4 \times 1 \times \left( \dfrac{k_{1} \; \theta}{12} \right)}}{2 \times 1}, \notag \\
+	\lambda_{i} &= -\dfrac{k_{1}}{16} \pm \sqrt{\dfrac{k_{1}^{2}}{256} - \dfrac{k_{1} \; \theta}{12} }, \notag \\
+\end{alignat}
+
+Given that the negative root does not have a physical meaning in this case, it can be disregarded, hence:
+
+\begin{equation}
+	\lambda_{i} &= -\dfrac{k_{1}}{16} + \sqrt{\dfrac{k_{1}^{2}}{256} - \dfrac{k_{1} \; \theta}{12} }
+\end{equation}
+
+
+\subsection{Compute the Rotor Drag}
+
+
+
+\subsection{Flare Time Calculation}
+
+
+From conservation of momentum (Newtons 2nd Law):
+
+\begin{equation}
+	m \dfrac{dv}{dt} = C_{R} v^{2} - m g.
+\end{equation}
+
+Re-arranging to obtain an expression for the change in time with respect to change in velocity:
+
+\begin{equation}
+	\dfrac{dv}{dt} = \dfrac{C_{R} v^{2} - m g}{m},
+\end{equation}
+
+\begin{equation}
+	dt = \dfrac{m}{C_{R} v^{2} - m g} \; dv.
+\end{equation}
+
+Integrating to allow computation of the time required for the aircraft to move from the initial flare velocity ($v_{i}$) to the exit flare velocity ($v_{e}$):
+
+\begin{equation}
+	\int_{0}^{t_{f}} dt = \int_{v_{i}}^{v_{e}} \dfrac{m}{C_{R} v^{2} - m g} \; dv,
+\end{equation}
+
+\begin{equation}
+ 	\label{eq:flare_time_pre_simple}
+	t_{f} = \dfrac{m}{C_{R}} \int_{v_{i}}^{v_{e}} \dfrac{1}{v^{2} - \dfrac{m g}{C_{R}}} \; dv.
+\end{equation}
+
+To maintain simplicity in the equations, defining a new grouping variable ($k_{1}$):
+
+\begin{equation}
+	k_{1} = \sqrt{\dfrac{m g}{C_{R}}},
+\end{equation}
+
+hence \Equation{eq:flare_time_pre_simple} becomes:
+
+\begin{equation}
+	\label{eq:TimeInt1}
+	t_{f} = \dfrac{m}{C_{R}} \int_{v_{i}}^{v_{e}} \dfrac{m}{v^{2} - k_{1}} \; dv
+\end{equation}
+
+To evaluate the quadratic integral, recall \cite{wikiQuadInt, YouMath}:
+
+\begin{equation}
+	\label{eq:QuadInt}
+	\int \dfrac{1}{a x^{2} + b x + c} \; dx = \dfrac{1}{\sqrt{b^{2} - 4 a c}} ln \left( \left| \dfrac{2 a x + b - \sqrt{b^{2} - 4 a c}}{2 a x + b + \sqrt{b^{2} - 4 a c}} \right| \right) + C, 
+\end{equation}
+
+if the discriminant ($b^{2} - 4ac$) is positive.  Hence, using \Equation{eq:QuadInt} for the case in presented in \Equation{eq:TimeInt1} the following is obtained:
+
+\begin{alignat}{2}
+	t_{f} &= \dfrac{m}{C_{R}} \left[ \dfrac{1}{\sqrt{0^{2} - 4 \times 1 \times (-k_{1}^{2})}} ln \left( \left| \dfrac{2 \times 1 \times v + 0 - \sqrt{0^{2} - 4 \times 1 \times (-k_{1}^{2})}}{2 \times 1 \times v + 0 + \sqrt{0^{2} - 4 \times 1 \times (-k_{1}^{2})}} \right| \right) \right]_{v_{i}}^{v_{e}}, \notag\\
+	t_{f} &= \dfrac{m}{C_{R}} \left[ \dfrac{1}{\sqrt{4 k_{1}^{2}}} ln \left( \left| \dfrac{2 v - \sqrt{4 k_{1}^{2}}}{2 v + \sqrt{4 k_{1}^{2}}} \right| \right) \right]_{v_{i}}^{v_{e}}, \notag\\
+	t_{f} &= \dfrac{m}{C_{R}} \left[ \dfrac{1}{2 k_{1}} ln \left( \left| \dfrac{v - k_{1}}{v + k_{1}} \right| \right) \right]_{v_{i}}^{v_{e}}, \label{eq:TimeInt2}
+\end{alignat}
+
+The final expression for time required to flare the aircraft is therefore:
+
+\begin{equation}
+	t_{f} = \dfrac{m}{C_{R}} \left( \dfrac{1}{2 k_{1}} ln \left( \left| \dfrac{v_{e} - k_{1}}{v_{e} + k_{1}} \right| \right) - \dfrac{1}{2 k_{1}} ln \left( \left| \dfrac{v_{i} - k_{1}}{v_{i} + k_{1}} \right| \right) \right)
+\end{equation}
+
+Note, in this problem, the math is being constructed to develop a means to determine when to initiate the flare phase of the auto rotation.  Therefore, when computing the time required to flare  initial velocity ($v_{i}$) is known 
+
+% --- References ---
+\bibliographystyle{unsrt}
+\bibliography{biblio}
+
+\end{document}
