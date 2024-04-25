@@ -52,8 +52,10 @@ void Copter::read_rangefinder(void)
         // tilt corrected but unfiltered, not glitch protected alt
         rf_state.alt_cm = tilt_correction * rangefinder.distance_cm_orient(rf_orient);
 
-        // remember inertial alt to allow us to interpolate rangefinder
-        rf_state.inertial_alt_cm = inertial_nav.get_position_z_up_cm();
+        // remember inertial alt to allow us to interpolate rangefinder from last healthy measurement
+        if (rf_state.alt_healthy) {
+            rf_state.inertial_alt_cm = inertial_nav.get_position_z_up_cm();
+        }
 
         // glitch handling.  rangefinder readings more than RANGEFINDER_GLITCH_ALT_CM from the last good reading
         // are considered a glitch and glitch_count becomes non-zero
@@ -161,12 +163,17 @@ void Copter::update_rangefinder_terrain_offset()
   recorded whenever we update the rangefinder height, then we use the
   difference between the inertial height at that time and the current
   inertial height to give us interpolation of height from rangefinder
+  time_out arg: this gives us the chance to use the inertially interpolated
+  range finder height for a short time after it goes out of range. This
+  is needed to prevent jumps in hagl when the rangefinder comes close to
+  the ground in an autorotation landing
  */
 bool Copter::get_rangefinder_height_interpolated_cm(int32_t& ret) const
 {
-    if (!rangefinder_alt_ok()) {
+    if (!rangefinder_alt_ok() && ((rangefinder_timeout_ms == 0) || (AP_HAL::millis() - rangefinder_state.last_healthy_ms > rangefinder_timeout_ms))) {
         return false;
     }
+
     ret = rangefinder_state.alt_cm_filt.get();
     float inertial_alt_cm = inertial_nav.get_position_z_up_cm();
     ret += inertial_alt_cm - rangefinder_state.inertial_alt_cm;
