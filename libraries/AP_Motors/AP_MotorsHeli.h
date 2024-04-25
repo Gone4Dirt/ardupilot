@@ -81,6 +81,9 @@ public:
     // get_rsc_setpoint - gets contents of _rsc_setpoint parameter (0~1)
     float get_rsc_setpoint() const { return _main_rotor._rsc_setpoint.get() * 0.01f; }
 
+    //return governor rpm setpoint
+    float get_rpm_setpoint() const {return _main_rotor.get_governor_setpoint();}
+
     // arot_man_enabled - gets contents of manual_autorotation_enabled parameter
     bool arot_man_enabled() const { return (_main_rotor._rsc_arot_man_enable.get() == 1) ? true : false; }
 
@@ -141,6 +144,17 @@ public:
 	
 	//return zero lift collective position
     float get_coll_mid() const { return _collective_zero_thrust_pct; }
+
+    //return landing collective position
+    float get_coll_land_min()const { return _collective_land_min_pct;}
+
+    float get_coll_zero_thrust_pitch() const { return _collective_zero_thrust_deg; }
+
+    // Return collective hover position as an angle in deg
+    float get_hover_coll_ang(void);
+
+    // Helper function to calculate the normalised collective position given a desired blade pitch angle (deg)
+    float calc_coll_from_ang(float col_ang_deg);
 
     // enum for heli optional features
     enum class HeliOption {
