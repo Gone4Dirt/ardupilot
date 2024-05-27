@@ -511,14 +511,14 @@ void AC_Autorotation::initial_flare_estimate(void)
     _disc_area = M_PI * 0.25 * sq(_param_diameter);
 
     // Calculating the equivalent inflow ratio (average across the whole blade)
-    float lambda_eq = -b / 16.0 + safe_sqrt(sq(b) / 256.0 + b * blade_pitch_hover_rad / 8.0);
+    float lambda_eq = -b / 16.0 + safe_sqrt(sq(b) / 256.0 + b * blade_pitch_hover_rad / 12.0);
 
     // Tip speed = head speed (rpm) / 60 * 2pi * rotor diameter/2. Eq below is simplified.
     float tip_speed_auto = _param_head_speed_set_point.get() * M_PI * _param_diameter / 60.0;
 
     // Calc the coefficient of thrust in the hover
     float c_t_hover = 0.5 * b * (blade_pitch_hover_rad / 3.0 - lambda_eq / 2.0);
-    _lift_hover = c_t_hover * 2.0 * SSL_AIR_DENSITY * _disc_area * sq(tip_speed_auto);
+    _lift_hover = c_t_hover * SSL_AIR_DENSITY * _disc_area * sq(tip_speed_auto);
 
     // Estimate rate of descent
     _est_rod = ((0.25 * _param_solidity.get() * ASSUMED_CD0 / c_t_hover) + (sq(c_t_hover) / (_param_solidity * ASSUMED_CD0))) * tip_speed_auto;
