@@ -69,8 +69,16 @@ void AP_RPM_Pin::update(void)
         }
     }
 
-    if (irq_state[state.instance].dt_count > 0) {
+    const float scaling = ap_rpm._params[state.instance].scaling;
+    const float maximum = ap_rpm._params[state.instance].maximum;
+    const float minimum = MAX(ap_rpm._params[state.instance].minimum, 0.0);
+    // assume quality has remained unchanged, it could just be that the rpm is below the minimum
+    float quality = state.signal_quality;
+    // if we don't get any interrupts then we assume that the RPM is zero
+    float rpm = 0.0;
+    const float filter_value = signal_quality_filter.get();
 
+    if (irq_state[state.instance].dt_count > 0) {
         // disable interrupts to prevent race with irq_handler
         void *irqstate = hal.scheduler->disable_interrupts_save();
         const float dt_avg = static_cast<float>(irq_state[state.instance].dt_sum) / irq_state[state.instance].dt_count;
@@ -78,34 +86,28 @@ void AP_RPM_Pin::update(void)
         irq_state[state.instance].dt_sum = 0;
         hal.scheduler->restore_interrupts(irqstate);
 
-        const float scaling = ap_rpm._params[state.instance].scaling;
-        const float maximum = ap_rpm._params[state.instance].maximum;
-        const float minimum = ap_rpm._params[state.instance].minimum;
-        float quality;
-        const float rpm = scaling * (1.0e6 / dt_avg) * 60;
-        const float filter_value = signal_quality_filter.get();
-
-        state.rate_rpm = signal_quality_filter.apply(rpm);
-
-        if ((maximum <= 0 || rpm <= maximum) && (rpm >= minimum)) {
-            if (is_zero(filter_value)){
-                quality = 0;
-            } else {
-                quality = 1 - constrain_float((fabsf(rpm-filter_value))/filter_value, 0.0, 1.0);
-                quality = powf(quality, 2.0);
-            }
-            state.last_reading_ms = AP_HAL::millis();
-        } else {
-            quality = 0;
-        }
-        state.signal_quality = (0.1 * quality) + (0.9 * state.signal_quality);
+        rpm = scaling * (1.0e6 / dt_avg) * 60;
+        state.last_reading_ms = AP_HAL::millis();
     }
 
-    // assume we get readings at at least 1Hz, otherwise reset quality to zero
-    if (AP_HAL::millis() - state.last_reading_ms > 1000) {
-        state.signal_quality = 0;
-        state.rate_rpm = 0;
+    // update the rpm state
+    state.rate_rpm = signal_quality_filter.apply(rpm);
+
+    // calculate a quality value for the last sensor measurement
+    if ((maximum > minimum) && (rpm > maximum)) {
+        quality = 0.0;
+    } else if ((rpm > minimum) && !is_zero(filter_value)) {
+        quality = 1 - constrain_float((fabsf(rpm-filter_value))/filter_value, 0.0, 1.0);
+        quality = powf(quality, 2.0);
     }
+
+    // assume we get readings at at least 1 every 10 seconds, but only if min rpm is above 6 (1/10s*60s/min), otherwise reset quality to zero.
+    // in some applications (e.g. plane) we don't want to mark the sensor unhealthy because zero rpm is valid.
+    if ((AP_HAL::millis() - state.last_reading_ms > 10000) && (minimum >= 6)) {
+        quality = 0.0;
+    }
+
+    state.signal_quality = (0.1 * quality) + (0.9 * state.signal_quality);
 }
 
 #endif  // AP_RPM_PIN_ENABLED
